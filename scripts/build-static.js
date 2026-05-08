@@ -3,7 +3,15 @@ const path = require('path');
 
 const rootDir = path.resolve(__dirname, '..');
 const distDir = path.join(rootDir, 'dist');
-const staticEntries = ['index.html', 'css', 'js', 'data', 'assets'];
+const staticEntries = [
+  'index.html',
+  'manifest.json',
+  'service-worker.js',
+  'css',
+  'js',
+  'data',
+  'assets'
+];
 
 function insideRoot(targetPath) {
   const resolved = path.resolve(targetPath);
@@ -42,6 +50,8 @@ fs.mkdirSync(distDir, { recursive: true });
 for (const entry of staticEntries) copyEntry(entry);
 
 assertBuiltFile('index.html');
+assertBuiltFile('manifest.json');
+assertBuiltFile('service-worker.js');
 assertBuiltFile(path.join('css', 'design-system.css'));
 assertBuiltFile(path.join('js', 'app.js'));
 assertBuiltFile(path.join('data', 'subject-mapping.js'));

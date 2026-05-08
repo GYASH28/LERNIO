@@ -344,6 +344,7 @@ const App = {
             
             if (e.key === 'Escape') {
                 this.closeSubjectModal();
+                this.toggleMobileMore(null, false);
                 if (window.Auth) Auth.hideAuthOverlay();
             }
             if (e.ctrlKey || e.metaKey || e.altKey) return;
@@ -359,6 +360,26 @@ const App = {
                 if (e.target === modal) this.closeSubjectModal();
             });
         }
+
+        // Close mobile "More" sheet when tapping outside.
+        document.addEventListener('click', (e) => {
+            const sheet = document.getElementById('mobile-more-sheet');
+            const trigger = document.getElementById('mobile-nav-more-btn');
+            if (!sheet || !sheet.classList.contains('open')) return;
+            if (sheet.contains(e.target) || (trigger && trigger.contains(e.target))) return;
+            this.toggleMobileMore(null, false);
+        });
+    },
+
+    toggleMobileMore(event, force) {
+        if (event && event.stopPropagation) event.stopPropagation();
+        const sheet = document.getElementById('mobile-more-sheet');
+        const trigger = document.getElementById('mobile-nav-more-btn');
+        if (!sheet) return;
+        const shouldOpen = typeof force === 'boolean' ? force : !sheet.classList.contains('open');
+        sheet.classList.toggle('open', shouldOpen);
+        sheet.setAttribute('aria-hidden', shouldOpen ? 'false' : 'true');
+        if (trigger) trigger.setAttribute('aria-expanded', shouldOpen ? 'true' : 'false');
     },
 
     renderSettings() {

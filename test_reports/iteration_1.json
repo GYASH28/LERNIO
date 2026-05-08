@@ -1,0 +1,49 @@
+{
+  "summary": "Code-level static review of Lernio AI (static HTML/CSS/JS + 7 Vercel serverless functions). Ran npm install, npm run check, npm run build (all PASS). Linted /app/js, /app/api, /app/service-worker.js (no issues). Performed static review of all 12 checklist items per the request. 11/12 PASS, 1 minor stylistic deviation in mobile bottom nav count. No critical bugs found. No live API calls or browser tests were attempted (out of scope per user request).",
+  "static_review_checklist": [
+    {"item": "npm install", "result": "PASS", "notes": "243 packages, 9 vulns (8 low, 1 moderate). Non-blocking."},
+    {"item": "npm run check (scripts/check-js.js)", "result": "PASS", "notes": "Checked 38 JS files and 14 mapped static assets. Exit 0."},
+    {"item": "npm run build", "result": "PASS", "notes": "dist/ contains index.html, manifest.json, service-worker.js, css/, js/, data/, assets/ (with notes/, mcqs/, logo.png, logo.jpeg)."},
+    {"item": "Lint /app/js, /app/api, /app/service-worker.js", "result": "PASS", "notes": "ESLint reported no issues across all three targets."},
+    {"item": "css/auth.css uses real tokens (no --surface-1/--rad-lg/--brand-primary/--text-tertiary/--border-light)", "result": "PASS", "notes": "grep found 0 occurrences of any forbidden token in css/auth.css."},
+    {"item": "index.html registers /service-worker.js and references manifest.json", "result": "PASS", "notes": "index.html:362 registers '/service-worker.js' (absolute). index.html:20 references 'manifest.json' (relative). Both resolve correctly at root. Stylistic: manifest could use leading '/' for consistency, but functionally correct."},
+    {"item": "Mobile bottom nav has primary items + 'More' sheet", "result": "PARTIAL PASS", "notes": "#mobile-more-sheet exists at index.html:254 with .mobile-more-sheet styles at layout.css:42. However, the bottom nav has 4 primary items (Home, Notes, AI-FAB, Quiz) + 1 More button = 5 buttons total, not 5 primary + More (= 6) as the request implies. The HTML comment self-describes this as '5 primary items, no overflow' counting the More button as one of the 5. The 'More' sheet itself contains: Analytics, Settings, Login, Logout (4 secondary items)."},
+    {"item": "js/ai.js exposes clearChat + retry-last + copy-message + 7 chips", "result": "PASS", "notes": "clearChat: line 213. _copyMessage: line 179 (+ copy button line 155). _retryLast: line 196 (+ retry button line 158). All 7 chips present in index.html:216-222 and ai.js:299-308: explain, exam, summary, mcqs, hinglish, weak, plan."},
+    {"item": "js/dashboard.js renders count-up tiles + Today's Goal", "result": "PASS", "notes": "data-count tiles at js/dashboard.js:101/106/111/116 (totalNotes, totalQuizzes, totalAttempts, avg%). Today's Goal eyebrow at line 125 (rendered at line 121). Animation routine queries .stat-tile-value[data-count] at line 363."},
+    {"item": "All 7 /api/* endpoints return graceful JSON when env vars missing", "result": "PASS", "notes": "chat.js: 503 JSON if N8N_CHAT_WEBHOOK_URL missing. ai-hint.js: 503 JSON if N8N_HINT_WEBHOOK_URL missing. ai.js: 503 JSON if GEMINI_API_KEY missing. progress.js: throws caught in try/catch -> 503 JSON 'Progress sync is temporarily unavailable...'. drive-notes.js + drive-file.js: errors routed through getDriveNotesErrorPayload(error) helper -> structured JSON. config.js: needs no env, returns static JSON. None of them crash."},
+    {"item": ".env.example documents 12 variables", "result": "PASS", "notes": "12 production vars present: N8N_CHAT_WEBHOOK_URL, N8N_HINT_WEBHOOK_URL, GEMINI_API_KEY, GEMINI_MODEL, FIREBASE_SERVICE_ACCOUNT_KEY, FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, FIREBASE_PRIVATE_KEY, GOOGLE_DRIVE_FOLDER_ID, GOOGLE_SERVICE_ACCOUNT_EMAIL, GOOGLE_PROJECT_ID, GOOGLE_PRIVATE_KEY. PORT is documented separately under 'Local dev only'."},
+    {"item": "No real secrets in repo (only env-var references)", "result": "PASS WITH NOTE", "notes": "No private keys, no service-account JSON, no n8n webhook URLs, no Gemini key found anywhere. Only one hardcoded value: Firebase web apiKey 'AIzaSy...' at js/firebase-config.js:5 along with authDomain/projectId/appId. This is the PUBLIC Firebase Web SDK config which Google explicitly designs to be client-side; security is enforced via Firestore/Storage Rules + App Check. The file already contains an inline comment acknowledging this. Industry-standard, not a leak."}
+  ],
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "n/a (mobile nav UI)", "issue": "Mobile bottom nav has 4 primary destinations (Home/Notes/AI/Quiz) + More, totalling 5 buttons. Request stated '5 primary items + More sheet' (= 6). Off by one vs spec; functionally fine and matches HTML comment."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": ["/app/test_reports/iteration_1.json"],
+  "action_items": [
+    "OPTIONAL: If spec strictly requires 5 primary destinations + More button, add a 5th primary item (e.g., Analytics) to .nav-mobile-inner in index.html and remove it from #mobile-more-sheet. Current 4+More layout is acceptable on phones <=375px.",
+    "OPTIONAL: Change index.html:20 from href=\"manifest.json\" to href=\"/manifest.json\" for absolute-path consistency with the service-worker registration.",
+    "OPTIONAL: Run `npm audit fix` to clear the 8 low + 1 moderate vulnerabilities (none are blocking)."
+  ],
+  "critical_code_review_comments": [
+    "Firebase web apiKey is hardcoded in /app/js/firebase-config.js:5. This is PUBLIC by Firebase design and the file documents it inline; safe by industry standard. Just be sure Firestore/Storage rules and App Check are enforced in the live project to prevent abuse.",
+    "/api/progress.js initAdmin() throws synchronously when no Firebase creds are present; the catch in handler() converts that to a 503. Works correctly, but consider returning a more specific error code (e.g., 501 Not Implemented or a structured 'configError' flag) so the frontend can distinguish 'misconfigured' from 'transient outage'.",
+    "/api/ai.js (Gemini fallback) is wired to read req.body directly without the robust readBody() helper that chat.js / ai-hint.js use. On Vercel this is fine because Vercel parses JSON automatically, but on the local Express server (local-server.js) this could mis-parse. Low priority.",
+    "/app/scripts/check-js.js is referenced as the project's own 'JS syntax + asset path validator' and passed cleanly; good.",
+    "service-worker.js was linted clean and is registered correctly."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "100% (static review)", "frontend": "n/a (frontend testing explicitly out of scope)"},
+  "test_credentials": "Per /app/memory/test_credentials.md, no test users were seeded. None required for static review.",
+  "seed_data_creation": "None.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Next iteration: if user enables live API testing, set N8N_CHAT_WEBHOOK_URL / N8N_HINT_WEBHOOK_URL / GEMINI_API_KEY / FIREBASE_* / GOOGLE_* in /app/.env, run `npm run dev` (Express on :8080) and exercise /api/chat, /api/ai-hint, /api/progress, /api/drive-notes, /api/drive-file via curl. The local-server.js maps /api/* to the same handler files Vercel uses, so behavior should be identical. Browser/playwright testing was explicitly excluded by the user this iteration.",
+  "rca_of_the_issue": "No bug being fixed in this iteration. This was a verification pass on E1's full production-grade upgrade. The only deviation found (mobile nav 4+More vs spec 5+More) is a minor count mismatch, not a functional defect."
+}

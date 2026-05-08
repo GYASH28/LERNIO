@@ -1,0 +1,49 @@
+{
+  "name": "Lernio AI - Smart Learning Platform",
+  "short_name": "Lernio AI",
+  "description": "AI-powered notes, quizzes, and study assistant for engineering students.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#050510",
+  "theme_color": "#0d2137",
+  "categories": ["education", "productivity"],
+  "lang": "en",
+  "icons": [
+    {
+      "src": "assets/logo.png",
+      "type": "image/png",
+      "sizes": "192x192",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "assets/logo.png",
+      "type": "image/png",
+      "sizes": "512x512",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Dashboard",
+      "url": "/#/dashboard",
+      "description": "Open the dashboard"
+    },
+    {
+      "name": "AI Tutor",
+      "url": "/#/chat",
+      "description": "Ask the AI tutor"
+    },
+    {
+      "name": "Notes",
+      "url": "/#/notes",
+      "description": "Browse semester notes"
+    },
+    {
+      "name": "Quiz",
+      "url": "/#/quiz",
+      "description": "Practice with quizzes"
+    }
+  ]
+}
