@@ -1,4 +1,4 @@
-// Optional Gemini proxy. The main frontend chat uses the n8n webhook from /api/config.
+// Optional Gemini proxy. The main frontend chat uses /api/chat.
 export default async function handler(req, res) {
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');

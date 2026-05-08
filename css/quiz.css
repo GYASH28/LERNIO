@@ -47,6 +47,9 @@
 .hint-box .hint-label { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 1px; color: var(--secondary); font-weight: 700; margin-bottom: var(--sp-2); display: flex; align-items: center; gap: var(--sp-2); }
 .hint-box .hint-text { font-size: 0.88rem; color: #c4b5fd; line-height: 1.6; }
 .hint-box.visible { display: block; }
+.hint-box.loading .hint-text { color: #a5b4fc; font-style: italic; }
+.hint-box.error { border-color: rgba(248,113,113,0.35); background: linear-gradient(135deg, rgba(239,68,68,0.08), rgba(168,85,247,0.04)); }
+.hint-box.error .hint-text { color: #fca5a5; }
 
 /* Confidence Rating */
 .confidence-row { display: flex; align-items: center; gap: var(--sp-3); margin-top: var(--sp-4); }

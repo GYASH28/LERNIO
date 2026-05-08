@@ -8,7 +8,7 @@ Lernio AI is a static HTML/CSS/JavaScript study platform for engineering student
 - Google Drive folder-provided PDF notes, static fallback PDFs from `assets/notes/...`, previous built-in notes from subject data, and student-added notes from Firestore.
 - Subject-level and global notes search across platform notes, MCQ PDFs, and student notes.
 - Real quiz data only where available: WD, EE101 BEEE electrical units, and EC101 BEEE electronics units.
-- Topic Explainer and AI chat through an n8n webhook configured at runtime.
+- Topic Explainer and AI chat through server-side n8n webhook proxies configured with environment variables.
 - PDF/DOCX/image/text note preview support, with PDF/DOCX preview libraries loaded only when needed.
 
 ## Notes And Quiz Mapping
@@ -25,16 +25,19 @@ Lernio AI is a static HTML/CSS/JavaScript study platform for engineering student
 
 Vercel serverless functions live in `api/`:
 
-- `/api/config` returns public runtime config such as `N8N_CHAT_WEBHOOK_URL`.
+- `/api/config` returns only public relative API paths.
+- `/api/chat` securely proxies AI Tutor chat to the configured n8n webhook.
+- `/api/ai-hint` securely proxies Quiz AI hints to the configured quiz n8n webhook.
 - `/api/progress` syncs authenticated progress to Firestore collection `userProgress`.
-- `/api/ai` is an optional Gemini proxy; the frontend chat currently prefers n8n.
+- `/api/ai` is an optional Gemini proxy.
 - `/api/drive-notes` reads the configured Google Drive notes folder and returns safe PDF metadata.
 - `/api/drive-file?id=<fileId>` streams allowed Google Drive PDFs through the backend so files can stay private.
 
 Required environment variables for Vercel:
 
 ```env
-N8N_CHAT_WEBHOOK_URL=https://your-n8n-webhook-url
+N8N_CHAT_WEBHOOK_URL=
+N8N_HINT_WEBHOOK_URL=
 FIREBASE_SERVICE_ACCOUNT_KEY={"type":"service_account",...}
 ```
 
@@ -159,7 +162,7 @@ Deployment flow:
 4. Verify the root URL loads `index.html`.
 5. Verify clean routes redirect to hash routes, for example `/dashboard` to `/#/dashboard`.
 6. Verify PDF links under `/assets/notes/...` and `/assets/mcqs/...`.
-7. Verify `/api/config` and `/api/progress` return clean responses.
+7. Verify `/api/config`, `/api/chat`, `/api/ai-hint`, and `/api/progress` return clean responses.
 8. Verify `/api/drive-notes` returns Drive notes or a safe config error.
 9. Verify `/api/drive-file?id=<fileId>` opens an allowed PDF after Drive is configured.
 
@@ -183,7 +186,7 @@ Google Drive integration:
 - Drive MCQ PDFs are shown as MCQ practice papers when their folder or file name includes `mcq`.
 - If Drive sync fails, the UI keeps rendering available saved/static notes and shows a friendly sync warning.
 
-Known limitations: Firebase Auth, Firestore notes, Storage uploads, and cloud progress sync require Firebase configuration and server credentials. Google Drive notes require the Drive folder to be shared with the configured service account. AI chat and Topic Explainer require `N8N_CHAT_WEBHOOK_URL`; if it is missing or unavailable, the UI falls back to offline guidance.
+Known limitations: Firebase Auth, Firestore notes, Storage uploads, and cloud progress sync require Firebase configuration and server credentials. Google Drive notes require the Drive folder to be shared with the configured service account. AI chat requires `N8N_CHAT_WEBHOOK_URL`; Quiz AI hints require `N8N_HINT_WEBHOOK_URL`; if either is missing or unavailable, the UI shows a friendly fallback message.
 
 ## Production Test Checklist
 

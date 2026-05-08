@@ -3,6 +3,7 @@ const express = require('express');
 const cors = require('cors');
 const fs = require('fs');
 const path = require('path');
+const { pathToFileURL } = require('url');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 
@@ -121,13 +122,20 @@ app.post('/api/ai/chat', authenticateToken, async (req, res) => {
 // --- Config Route (Frontend Env Variables) ---
 app.get('/api/config', (req, res) => {
     res.json({
-        N8N_CHAT_WEBHOOK_URL: process.env.VITE_N8N_CHAT_WEBHOOK_URL || process.env.N8N_CHAT_WEBHOOK_URL || ''
+        AI_CHAT_API: '/api/chat',
+        AI_HINT_API: '/api/ai-hint'
     });
 });
 
-function invokeVercelFunction(modulePath, req, res) {
+async function invokeVercelFunction(modulePath, req, res) {
     try {
-        const handler = require(modulePath);
+        let loaded;
+        try {
+            loaded = require(modulePath);
+        } catch (error) {
+            loaded = await import(pathToFileURL(path.join(__dirname, modulePath)).href);
+        }
+        const handler = loaded.default || loaded;
         return handler(req, res);
     } catch (error) {
         console.error(`Local API failed for ${req.path}:`, error.message || error);
@@ -141,6 +149,14 @@ app.all('/api/drive-notes', (req, res) => {
 
 app.all('/api/drive-file', (req, res) => {
     invokeVercelFunction('./api/drive-file.js', req, res);
+});
+
+app.all('/api/chat', (req, res) => {
+    invokeVercelFunction('./api/chat.js', req, res);
+});
+
+app.all('/api/ai-hint', (req, res) => {
+    invokeVercelFunction('./api/ai-hint.js', req, res);
 });
 
 app.use((req, res) => {

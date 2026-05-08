@@ -3,7 +3,6 @@ const AI = {
     PROVIDER: 'n8n',
     isTyping: false,
     history: {},
-    _configPromise: null,
     _composerBound: false,
 
     init() {
@@ -31,15 +30,6 @@ const AI = {
             .replace(/\*(.*?)\*/g, '<em>$1</em>')
             .replace(/`(.*?)`/g, '<code>$1</code>')
             .replace(/\n/g, '<br>');
-    },
-
-    async _loadConfig() {
-        if (!this._configPromise) {
-            this._configPromise = fetch('/api/config', { headers: { Accept: 'application/json' } })
-                .then(res => res.ok ? res.json() : {})
-                .catch(() => ({}));
-        }
-        return this._configPromise;
     },
 
     _messagesEl() {
@@ -143,7 +133,8 @@ const AI = {
     },
 
     async send(text) {
-        if (this.isTyping || !text.trim()) return;
+        const message = String(text || '').trim();
+        if (this.isTyping || !message) return;
 
         const now = Date.now();
         if (this._lastSendTime && now - this._lastSendTime < 1500) {
@@ -161,7 +152,7 @@ const AI = {
         if (btn) { btn.disabled = true; btn.style.opacity = '0.5'; }
         this.updateSendButtonState();
 
-        this.appendMessage(text, 'user');
+        this.appendMessage(message, 'user');
 
         const typingId = 'typing-' + Date.now();
         const container = this._messagesEl();
@@ -175,14 +166,15 @@ const AI = {
         }
 
         try {
-            const reply = await this._getReply(text);
+            const reply = await this._getReply(message);
             document.getElementById(typingId)?.remove();
             this.appendMessage(reply, 'bot');
         } catch (error) {
+            console.error('AI Tutor request failed:', error);
             document.getElementById(typingId)?.remove();
-            const subject = SubjectRegistry ? SubjectRegistry.get(Store.getActiveSubject()) : null;
-            const offlineReply = this._getOfflineReply(text, subject);
-            this.appendMessage(`${error.message}\n\nOffline suggestion:\n${offlineReply}`, 'bot');
+            const subject = window.SubjectRegistry ? SubjectRegistry.get(Store.getActiveSubject()) : null;
+            const offlineReply = this._getOfflineReply(message, subject);
+            this.appendMessage(`AI Tutor is temporarily unavailable. Please try again in a few seconds.\n\nOffline suggestion:\n${offlineReply}`, 'bot');
         } finally {
             this.isTyping = false;
             if (window.ThreeScene) window.ThreeScene.setAiThinking(false);
@@ -262,30 +254,40 @@ const AI = {
         return reply;
     },
 
-    async _callN8N({ prompt, subjectCode, subjectName, context }) {
-        const config = await this._loadConfig();
-        const webhookUrl = config.N8N_CHAT_WEBHOOK_URL;
-        if (!webhookUrl) {
-            throw new Error('AI backend is not connected yet. Add N8N_CHAT_WEBHOOK_URL in Vercel or local environment variables.');
-        }
+    _getSemesterLabel(subjectCode) {
+        if (!window.SemestersConfig) return 'Semester 2';
+        const semester = SemestersConfig.find(sem => (sem.subjects || []).some(sub => {
+            const mappedCode = window.SubjectMapping ? SubjectMapping.getRegistryCode(sub.code) : sub.code;
+            return sub.code === subjectCode || mappedCode === subjectCode;
+        }));
+        return semester ? `Semester ${semester.id}` : 'Semester 2';
+    },
 
+    async _callN8N({ prompt, subjectCode, subjectName, context }) {
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 20000);
+        const timeoutId = setTimeout(() => controller.abort(), 45000);
 
         let response;
         try {
-            response = await fetch(webhookUrl, {
+            response = await fetch('/api/chat', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    Accept: 'application/json'
+                },
                 body: JSON.stringify({
-                    action: 'sendMessage',
                     sessionId: this.getSessionId(),
-                    chatInput: prompt,
+                    message: prompt,
+                    subject: subjectName || 'General',
+                    subjectCode: subjectCode || 'GENERAL',
+                    semester: this._getSemesterLabel(subjectCode),
+                    mode: 'Explain Simply',
+                    source: 'lernio-ai-web',
                     context: {
                         subjectCode,
                         subjectName,
                         subjectContext: context,
-                        page: App.currentPage || 'unknown'
+                        page: window.App?.currentPage || 'chat'
                     }
                 }),
                 signal: controller.signal
@@ -293,26 +295,28 @@ const AI = {
         } catch (error) {
             clearTimeout(timeoutId);
             if (error.name === 'AbortError') {
-                throw new Error('The AI request timed out. Please try again.');
+                throw new Error('AI Tutor is temporarily unavailable. Please try again in a few seconds.');
             }
-            throw new Error('Unable to reach the AI server. Please check your connection.');
+            throw new Error('AI Tutor is temporarily unavailable. Please try again in a few seconds.');
         } finally {
             clearTimeout(timeoutId);
         }
-
-        if (!response.ok) throw new Error(`AI server returned HTTP ${response.status}. Please try again.`);
 
         let data;
         try {
             data = await response.json();
         } catch (_) {
-            throw new Error('The AI server returned an unreadable response.');
+            data = {};
         }
 
-        if (typeof data?.output === 'string') return data.output;
-        if (typeof data?.text === 'string') return data.text;
-        if (typeof data?.reply === 'string') return data.reply;
-        throw new Error('No valid reply received from AI. Please try again.');
+        if (!response.ok) {
+            throw new Error(data?.error || 'AI Tutor is temporarily unavailable. Please try again in a few seconds.');
+        }
+
+        if (typeof data?.reply === 'string' && data.reply.trim()) return data.reply.trim();
+        if (typeof data?.output === 'string' && data.output.trim()) return data.output.trim();
+        if (typeof data?.text === 'string' && data.text.trim()) return data.text.trim();
+        throw new Error('AI Tutor is temporarily unavailable. Please try again in a few seconds.');
     },
 
     _getOfflineReply(text, subject) {

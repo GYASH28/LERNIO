@@ -19,6 +19,9 @@ const Quiz = {
     timerEnabled: false,
     unitStats: {},
     hasNegativeMarking: false,
+    hintLoading: false,
+    hintRequestId: 0,
+    currentOptions: [],
 
     render() {
         const el = document.getElementById('page-quiz');
@@ -154,6 +157,9 @@ const Quiz = {
         this.unitStats = {};
         this.timerEnabled = timer > 0;
         this.timeLeft = timer * 60;
+        this.hintLoading = false;
+        this.hintRequestId = 0;
+        this.currentOptions = [];
 
         document.getElementById('quiz-setup').style.display = 'none';
         document.getElementById('quiz-active').style.display = 'block';
@@ -202,6 +208,9 @@ const Quiz = {
                         this.unitStats = {};
                         this.timerEnabled = false;
                         this.hasNegativeMarking = false;
+                        this.hintLoading = false;
+                        this.hintRequestId = 0;
+                        this.currentOptions = [];
                         document.getElementById('quiz-setup').style.display = 'none';
                         document.getElementById('quiz-active').style.display = 'block';
                         document.getElementById('quiz-result').style.display = 'none';
@@ -236,6 +245,9 @@ const Quiz = {
         }
 
         Utils.shuffle(opts);
+        this.currentOptions = opts.map(option => option.text);
+        this.hintLoading = false;
+        this.hintRequestId += 1;
         const labels = ['A', 'B', 'C', 'D'];
         const isFlagged = this.flagged.has(this.currentIdx);
 
@@ -261,7 +273,7 @@ const Quiz = {
                 </button>`).join('')}
             </div>
             <div class="quiz-actions" id="quiz-actions">
-                ${this.mode === 'practice' ? `<button class="btn btn-ghost btn-sm" onclick="Quiz.showHint()">Get Hint</button>` : ''}
+                ${this.mode === 'practice' ? `<button class="btn btn-ghost btn-sm" id="hint-btn" onclick="Quiz.showHint()">Get Hint</button>` : ''}
                 <button class="btn btn-ghost btn-sm" onclick="Quiz.toggleFlag()" id="flag-btn">${isFlagged ? 'Unflag' : 'Flag'}</button>
                 ${this.mode === 'practice' ? `<button class="btn btn-ghost btn-sm" onclick="Quiz.skipQuestion()">Skip</button>` : ''}
             </div>
@@ -395,16 +407,77 @@ const Quiz = {
         if (btn) btn.textContent = this.flagged.has(this.currentIdx) ? 'Unflag' : 'Flag';
     },
 
-    showHint() {
+    async showHint() {
+        if (this.hintLoading) return;
         const q = this.pool[this.currentIdx];
-        const explanation = (q.explain || q.explanation || '').toString();
-        const hint = explanation ? explanation.split('.')[0] : '';
-        const words = hint.split(' ');
-        const hintText = words.length > 6
-            ? 'Think about: ' + words.slice(0, Math.ceil(words.length * 0.6)).join(' ') + '...'
-            : 'This is about ' + (q.topic || 'the current concept') + '.';
-        document.getElementById('hint-text').textContent = hintText;
-        document.getElementById('hint-box').classList.add('visible');
+        if (!q) return;
+
+        const hintBox = document.getElementById('hint-box');
+        const hintText = document.getElementById('hint-text');
+        const hintBtn = document.getElementById('hint-btn');
+        if (!hintBox || !hintText) return;
+
+        const requestId = ++this.hintRequestId;
+        this.hintLoading = true;
+        hintBox.classList.add('visible');
+        hintBox.classList.remove('error');
+        hintBox.classList.add('loading');
+        hintText.textContent = 'Generating AI hint...';
+        if (hintBtn) hintBtn.disabled = true;
+
+        const code = Store.getActiveSubject();
+        const subject = window.SubjectRegistry ? SubjectRegistry.get(code) : null;
+        const rawOptions = Array.isArray(q.opts) ? q.opts : (Array.isArray(q.options) ? q.options : []);
+        const correctIndex = Number.isInteger(q.ans) ? q.ans : (Number.isInteger(q.correctAnswer) ? q.correctAnswer : null);
+        const unit = subject && q.unit ? SubjectRegistry.getUnit(code, q.unit) : null;
+
+        try {
+            const response = await fetch('/api/ai-hint', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Accept: 'application/json'
+                },
+                body: JSON.stringify({
+                    subject: subject?.name || code || 'General',
+                    unit: unit ? `Unit ${unit.id} - ${unit.title}` : (q.unit ? `Unit ${q.unit}` : ''),
+                    topic: q.topic || '',
+                    difficulty: q.difficulty || '',
+                    mode: this.mode || 'practice',
+                    question: q.q || q.question || '',
+                    options: rawOptions,
+                    correctAnswer: correctIndex !== null ? rawOptions[correctIndex] : q.correctAnswer,
+                    instruction: 'Give a helpful hint only. Do not reveal the final answer. Do not mention the correct option letter. Keep it short and student-friendly.'
+                })
+            });
+
+            let data = {};
+            try {
+                data = await response.json();
+            } catch (_) {
+                data = {};
+            }
+
+            if (requestId !== this.hintRequestId) return;
+            if (!response.ok) throw new Error(data?.error || `AI hint failed with status ${response.status}`);
+
+            const hint = typeof data?.hint === 'string' ? data.hint.trim() : '';
+            if (!hint) throw new Error('No hint returned from AI hint route.');
+
+            hintBox.classList.remove('loading', 'error');
+            hintText.textContent = hint;
+        } catch (error) {
+            if (requestId !== this.hintRequestId) return;
+            console.error('Quiz AI hint failed:', error);
+            hintBox.classList.remove('loading');
+            hintBox.classList.add('error');
+            hintText.textContent = 'Could not fetch AI hint. Please try again.';
+        } finally {
+            if (requestId === this.hintRequestId) {
+                this.hintLoading = false;
+                if (hintBtn) hintBtn.disabled = false;
+            }
+        }
     },
 
     showResult() {
