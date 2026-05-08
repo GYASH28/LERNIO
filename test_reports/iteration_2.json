@@ -1,0 +1,50 @@
+{
+  "summary": "Iteration 2 static code review of Lernio AI - 3 backlog items added (Notes filter chips, Quiz Ask-AI buttons, Settings theme toggle). Ran npm run check, npm run build, ESLint on /app/js - all PASS. Verified each new feature item-by-item with file:line references. 100% PASS on all 9 checklist items. No regressions detected on existing functions. No real secrets committed (only public Firebase web apiKey, already documented as safe in iteration 1). No code modifications were necessary.",
+  "static_review_checklist": [
+    {"item": "npm run check", "result": "PASS", "notes": "scripts/check-js.js: Checked 38 JS files and 14 mapped static assets. Exit 0."},
+    {"item": "npm run build", "result": "PASS", "notes": "build-static.js produced /app/dist successfully. Exit 0."},
+    {"item": "ESLint /app/js", "result": "PASS", "notes": "No issues across all 21 JS files (including new code in app.js / quiz.js / semester-notes.js)."},
+
+    {"item": "Theme toggle - [data-theme=\"light\"] tokens in design-system.css", "result": "PASS", "notes": "css/design-system.css:122 declares [data-theme=\"light\"] root token block (followed by 30+ component overrides at lines 144-...)."},
+    {"item": "Theme toggle - App.setTheme + applySubjectTheme + meta theme-color", "result": "PASS", "notes": "js/app.js:462 App.setTheme(theme) persists via Store.updateSettings({theme}), updates .theme-option .selected, calls applySubjectTheme(), toasts. js/app.js:222-238 applySubjectTheme() reads settings.theme (default 'dark'), resolves 'system' via window.matchMedia('(prefers-color-scheme: light)'), sets documentElement[data-theme], and updates <meta name='theme-color'> to '#f5f7fb' (light) or '#0d2137' (dark)."},
+    {"item": "Theme toggle - Store.getSettings default includes theme:'dark'", "result": "PASS", "notes": "js/store.js:155 returns { fontSize:'medium', reducedMotion:false, theme:'dark' } when no settings persisted."},
+    {"item": "Theme toggle - Settings UI 3 options w/ data-testid theme-dark/theme-light/theme-system", "result": "PASS", "notes": "js/app.js:412-426 renders <div class='theme-picker' role='radiogroup'> with 3 .theme-option buttons. data-testid='theme-dark' (line 414), 'theme-light' (line 418), 'theme-system' (line 422). Each calls App.setTheme(<value>). 'selected' class reflects current theme."},
+    {"item": "Theme toggle - .theme-picker / .theme-option / .theme-swatch CSS", "result": "PASS", "notes": "css/components.css:124-131 defines .theme-picker (3-col grid), .theme-option (incl :hover, .selected), .theme-swatch (+ -dark / -light / -system gradients)."},
+
+    {"item": "Quiz - askAiToExplain method builds multi-line prompt + AI.quickAsk", "result": "PASS", "notes": "js/quiz.js:485-501 askAiToExplain() reads current question, builds Options block (A./B./C./D.), correct answer, unit, topic - then calls AI.quickAsk(prompt). Handles both q.opts/q.options and q.ans/q.correctAnswer shapes."},
+    {"item": "Quiz - feedback area injects 'Ask AI to explain' button with data-testid='quiz-explain-ai'", "result": "PASS", "notes": "js/quiz.js:381 inside handleAnswer feedback markup: <button class='btn btn-secondary btn-sm' onclick='Quiz.askAiToExplain()' data-testid='quiz-explain-ai'>Ask AI to explain</button>, alongside Next button."},
+    {"item": "Quiz - result page injects 'Ask AI on weak topics' when weakArr non-empty + askAiOnWeakTopics method", "result": "PASS", "notes": "js/quiz.js:580 result-page CTA row conditionally renders <button data-testid='quiz-explain-weak-btn' onclick='Quiz.askAiOnWeakTopics()'> only when weakArr.length>0. js/quiz.js:503-514 askAiOnWeakTopics() ranks top 4 weak topics from this.wrongTopics, builds revision-plan prompt, calls AI.quickAsk()."},
+
+    {"item": "Notes - typeFilter/sourceFilter state default 'all' + setters + chip renderer + matcher", "result": "PASS", "notes": "js/semester-notes.js:13-14 typeFilter:'all', sourceFilter:'all'. Lines 83-84 reset on subject switch. setTypeFilter (363), setSourceFilter (368), _renderFilterChips (373), _matchesFilters (346) all present. _matchesQuery (328) ends with `return this._matchesFilters(item)` at line 343."},
+    {"item": "Notes - <div class='notes-filter-row' id='notes-filter-row'> rendered in notes page markup", "result": "PASS", "notes": "js/semester-notes.js:153 markup string contains <div class='notes-filter-row' id='notes-filter-row'></div> directly under the tabs row."},
+    {"item": "Notes - renderNotes() calls _renderFilterChips()", "result": "PASS", "notes": "js/semester-notes.js:446 renderNotes() invokes this._renderFilterChips() before applying filters to mcqs / publicNotes / myNotes / driveNotes / folderNotes."},
+    {"item": "Notes - .filter-chip / .filter-chip-row / .filter-chip-group-label CSS", "result": "PASS", "notes": "css/components.css:134-141 defines .filter-chip-row (+ .scrollable variant), .filter-chip (+ :hover, .active, .chip-count), .filter-chip-group-label."},
+    {"item": "Notes - filter chip buttons have data-testid filter-type-* and filter-source-*", "result": "PASS", "notes": "js/semester-notes.js:425 type chips render with data-testid=`filter-type-${c.id}` (covers all/pdf/docx/image/text). Line 435 source chips render with data-testid=`filter-source-${c.id}` (covers all/google-drive/folder/platform/student). Counts shown via .chip-count."},
+
+    {"item": "Regression - Quiz.showHint, Quiz.handleAnswer", "result": "PASS", "notes": "js/quiz.js:309 handleAnswer, js/quiz.js:412 showHint."},
+    {"item": "Regression - SemesterNotes.switchTab, SemesterNotes.handleSubjectSearch", "result": "PASS", "notes": "js/semester-notes.js:185 switchTab, js/semester-notes.js:193 handleSubjectSearch."},
+    {"item": "Regression - App.saveSettings, App.applySubjectTheme", "result": "PASS", "notes": "js/app.js:471 saveSettings (still persists fontSize+reducedMotion, then re-applies theme so font/motion+theme stay in sync). js/app.js:222 applySubjectTheme."},
+    {"item": "index.html still contains page-settings div", "result": "PASS", "notes": "index.html:195 <div id='page-settings' class='page-container' data-testid='page-settings'></div>."},
+
+    {"item": "data-testid present on all newly added interactive elements", "result": "PASS", "notes": "theme-dark/theme-light/theme-system, quiz-explain-ai, quiz-explain-weak-btn, filter-type-{all,pdf,docx,image,text}, filter-source-{all,google-drive,folder,platform,student}. All wired."},
+    {"item": "No real secrets committed", "result": "PASS", "notes": "Repo grep finds only env-var references (.env.example placeholders, process.env.* lookups) and the public Firebase web apiKey at js/firebase-config.js:5 (Google-designed-public, secured by Firestore Rules + App Check, already noted in iteration_1)."}
+  ],
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": ["/app/test_reports/iteration_2.json", "/app/test_reports/iteration_1.json"],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Optional polish: js/app.js:222 applySubjectTheme does not subscribe to window.matchMedia('(prefers-color-scheme: light)').change events, so users on theme:'system' won't auto-flip when the OS theme changes mid-session. Adding a single matchMedia(...).addEventListener('change', App.applySubjectTheme) at boot would make 'system' truly reactive without page reload. Not a defect; expected behavior is documented as 'resolves on the fly' which is true on next render.",
+    "Optional polish: js/quiz.js:498 prompt template embeds `q.unit` and `q.topic` separated by ' \u00b7 ' but if only `q.topic` exists (no unit) the leading separator is omitted naturally; however if only q.unit exists with no topic, the trailing line ends with 'Unit: X' (no newline) before the prompt closes - no functional bug, just a tiny formatting inconsistency for the LLM input.",
+    "Iteration 1 carryover: js/firebase-config.js:5 hardcodes the public Firebase web apiKey - safe per Firebase design, but make sure Firestore/Storage Rules + App Check are enforced in production.",
+    "Iteration 1 carryover: /api/ai.js still reads req.body without the readBody() helper used by chat.js / ai-hint.js. Vercel parses JSON natively, but the local Express server may behave differently. Low priority."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "100% (static review)", "frontend": "n/a (frontend testing explicitly out of scope per request)"},
+  "test_credentials": "None required for static review. /app/memory/test_credentials.md not consulted (no auth flows exercised).",
+  "seed_data_creation": "None.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Iteration 2 added 3 backlog features (theme toggle, quiz Ask-AI, notes filter chips). All 21 static-review items PASS with file:line evidence captured above. Build/check/lint clean. No code edits made. Next iteration: if user enables live API or browser testing, exercise (1) Settings theme toggle - flip dark/light/system and confirm <html data-theme> + <meta theme-color> + .theme-option.selected update; (2) Quiz feedback - answer a question, click 'Ask AI to explain', confirm AI page opens with prompt; (3) Notes page - click each filter-type-* / filter-source-* chip and confirm note grid filters correctly with counts.",
+  "rca_of_the_issue": "No bug under investigation. Iteration 2 is a verification pass for 3 newly-added features; all wiring is correct."
+}

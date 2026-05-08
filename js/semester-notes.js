@@ -10,6 +10,8 @@ const SemesterNotes = {
     currentSemId: null,
     currentSubCode: null,
     searchQuery: '',
+    typeFilter: 'all',     // all | pdf | docx | image | text
+    sourceFilter: 'all',   // all | google-drive | folder | platform | student
     _selectedFile: null,
     _pdfDoc: null,
 
@@ -78,6 +80,8 @@ const SemesterNotes = {
         this.currentSubCode = subCode;
         this.currentTab = 'class';
         this.searchQuery = '';
+        this.typeFilter = 'all';
+        this.sourceFilter = 'all';
         this._selectedFile = null;
 
         const el = document.getElementById('page-notes');
@@ -143,8 +147,11 @@ const SemesterNotes = {
                     </section>
 
                     <div class="notes-tab-bar">
-                        <button class="notes-tab active" id="tab-class" onclick="SemesterNotes.switchTab('class')">Class Notes</button>
-                        <button class="notes-tab" id="tab-my" onclick="SemesterNotes.switchTab('my')">My Notes</button>
+                        <button class="notes-tab active" id="tab-class" onclick="SemesterNotes.switchTab('class')" data-testid="notes-tab-class">Class Notes</button>
+                        <button class="notes-tab" id="tab-my" onclick="SemesterNotes.switchTab('my')" data-testid="notes-tab-my">My Notes</button>
+                    </div>
+                    <div class="notes-filter-row" id="notes-filter-row">
+                        <!-- Filter chips injected by renderNotes() -->
                     </div>
                     <div class="un-grid" id="notes-grid"></div>
                 </div>
@@ -320,23 +327,123 @@ const SemesterNotes = {
 
     _matchesQuery(item) {
         const q = this.searchQuery.trim().toLowerCase();
-        if (!q) return true;
-        const haystack = [
-            item.title,
-            item.unitTitle,
-            item.unit ? `unit ${item.unit}` : '',
-            item.unitId ? `unit ${item.unitId}` : '',
-            item.subject,
-            item.subjectId,
-            item.content,
-            ...(item.tags || [])
-        ].join(' ').toLowerCase();
-        return haystack.includes(q);
+        if (q) {
+            const haystack = [
+                item.title,
+                item.unitTitle,
+                item.unit ? `unit ${item.unit}` : '',
+                item.unitId ? `unit ${item.unitId}` : '',
+                item.subject,
+                item.subjectId,
+                item.content,
+                ...(item.tags || [])
+            ].join(' ').toLowerCase();
+            if (!haystack.includes(q)) return false;
+        }
+        return this._matchesFilters(item);
+    },
+
+    _matchesFilters(item) {
+        // Type filter
+        if (this.typeFilter && this.typeFilter !== 'all') {
+            const t = (item.fileType || (item.content ? 'text' : 'pdf')).toLowerCase();
+            if (t !== this.typeFilter) return false;
+        }
+        // Source filter (only meaningful in 'class' tab)
+        if (this.currentTab === 'class' && this.sourceFilter && this.sourceFilter !== 'all') {
+            const itemSource = item.source || (item.userId ? 'student' : 'platform');
+            const platformLike = ['previous-data', 'platform'];
+            const isPlatform = platformLike.includes(itemSource);
+            if (this.sourceFilter === 'platform' && !isPlatform) return false;
+            if (this.sourceFilter !== 'platform' && itemSource !== this.sourceFilter) return false;
+        }
+        return true;
+    },
+
+    setTypeFilter(value) {
+        this.typeFilter = value;
+        this.renderNotes();
+    },
+
+    setSourceFilter(value) {
+        this.sourceFilter = value;
+        this.renderNotes();
+    },
+
+    _renderFilterChips() {
+        const row = document.getElementById('notes-filter-row');
+        if (!row) return;
+
+        // Compute counts from the relevant pool (current tab)
+        const uid = this._uid();
+        const allItems = this.currentTab === 'class'
+            ? [
+                ...(this.platformNotes || []),
+                ...(this.mcqPdfs || []),
+                ...this.notes.filter(n => n.isPublic)
+              ]
+            : this.notes.filter(n => n.userId === uid);
+
+        const countByType = (type) => {
+            return allItems.filter(item => {
+                const t = (item.fileType || (item.content ? 'text' : 'pdf')).toLowerCase();
+                return type === 'all' ? true : t === type;
+            }).length;
+        };
+
+        const countBySource = (src) => {
+            return allItems.filter(item => {
+                const s = item.source || (item.userId ? 'student' : 'platform');
+                if (src === 'all') return true;
+                if (src === 'platform') return ['previous-data', 'platform'].includes(s);
+                return s === src;
+            }).length;
+        };
+
+        const typeChips = [
+            { id: 'all', label: 'All' },
+            { id: 'pdf', label: 'PDF' },
+            { id: 'docx', label: 'Doc' },
+            { id: 'image', label: 'Image' },
+            { id: 'text', label: 'Text' }
+        ];
+
+        const sourceChips = [
+            { id: 'all', label: 'All sources' },
+            { id: 'google-drive', label: 'Drive' },
+            { id: 'folder', label: 'Static' },
+            { id: 'platform', label: 'Built-in' },
+            { id: 'student', label: 'Student' }
+        ];
+
+        const typeRow = `
+            <div class="filter-chip-row scrollable" role="toolbar" aria-label="Filter notes by type">
+                <span class="filter-chip-group-label">Type</span>
+                ${typeChips.map(c => {
+                    const count = countByType(c.id);
+                    const disabled = c.id !== 'all' && count === 0;
+                    return `<button class="filter-chip ${this.typeFilter === c.id ? 'active' : ''}" ${disabled ? 'disabled aria-disabled="true"' : ''} onclick="SemesterNotes.setTypeFilter('${c.id}')" data-testid="filter-type-${c.id}">${c.label}${c.id !== 'all' ? `<span class="chip-count">${count}</span>` : ''}</button>`;
+                }).join('')}
+            </div>`;
+
+        const sourceRow = this.currentTab === 'class' ? `
+            <div class="filter-chip-row scrollable" role="toolbar" aria-label="Filter notes by source">
+                <span class="filter-chip-group-label">Source</span>
+                ${sourceChips.map(c => {
+                    const count = countBySource(c.id);
+                    const disabled = c.id !== 'all' && count === 0;
+                    return `<button class="filter-chip ${this.sourceFilter === c.id ? 'active' : ''}" ${disabled ? 'disabled aria-disabled="true"' : ''} onclick="SemesterNotes.setSourceFilter('${c.id}')" data-testid="filter-source-${c.id}">${c.label}${c.id !== 'all' ? `<span class="chip-count">${count}</span>` : ''}</button>`;
+                }).join('')}
+            </div>` : '';
+
+        row.innerHTML = typeRow + sourceRow;
     },
 
     renderNotes() {
         const grid = document.getElementById('notes-grid');
         if (!grid) return;
+
+        this._renderFilterChips();
 
         const uid = this._uid();
         const platform = this._sortItems([...(this.platformNotes || [])]);

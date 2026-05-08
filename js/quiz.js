@@ -377,7 +377,9 @@ const Quiz = {
         feedback.className = `quiz-feedback ${isCorrect ? 'correct' : 'wrong'}`;
         feedback.innerHTML = `<strong>${isCorrect ? 'Correct!' : 'Incorrect'}</strong> ${Utils.escHtml(explain || 'Review the related notes for this answer.')}`;
         feedback.style.display = 'block';
-        document.getElementById('quiz-actions').innerHTML = '<button class="btn btn-primary" onclick="Quiz.nextQ()">Next Question</button>';
+        document.getElementById('quiz-actions').innerHTML = `
+            <button class="btn btn-secondary btn-sm" onclick="Quiz.askAiToExplain()" data-testid="quiz-explain-ai">Ask AI to explain</button>
+            <button class="btn btn-primary" onclick="Quiz.nextQ()" data-testid="quiz-next-q">Next Question</button>`;
 
         if (!Store.getSettings().reducedMotion) {
             if (!isCorrect) {
@@ -480,6 +482,37 @@ const Quiz = {
         }
     },
 
+    askAiToExplain() {
+        const q = this.pool[this.currentIdx];
+        if (!q || !window.AI) return;
+        const rawOptions = Array.isArray(q.opts) ? q.opts : (Array.isArray(q.options) ? q.options : []);
+        const correctIndex = Number.isInteger(q.ans) ? q.ans : (Number.isInteger(q.correctAnswer) ? q.correctAnswer : null);
+        const correctText = correctIndex !== null && rawOptions[correctIndex]
+            ? rawOptions[correctIndex]
+            : (typeof q.correctAnswer === 'string' ? q.correctAnswer : '');
+
+        const optionsBlock = rawOptions.length
+            ? `Options:\n${rawOptions.map((o, i) => `  ${String.fromCharCode(65 + i)}. ${o}`).join('\n')}\n\n`
+            : '';
+
+        const prompt = `Explain this MCQ in simple words. Cover: why the correct option is right, why the other options are wrong, and the key concept.\n\nQuestion: ${q.q || q.question}\n${optionsBlock}${correctText ? `Correct answer: ${correctText}\n` : ''}${q.unit ? `Unit: ${q.unit}` : ''}${q.topic ? ` · Topic: ${q.topic}` : ''}`;
+
+        AI.quickAsk(prompt);
+    },
+
+    askAiOnWeakTopics() {
+        if (!window.AI) return;
+        const weak = Object.entries(this.wrongTopics || {}).sort((a, b) => b[1] - a[1]).slice(0, 4);
+        if (!weak.length) {
+            Utils.showToast('No weak topics from this attempt.', 'info');
+            return;
+        }
+        const subject = SubjectRegistry.get(Store.getActiveSubject());
+        const subjectName = subject ? subject.name : 'this subject';
+        const list = weak.map(([t]) => `- ${t}`).join('\n');
+        AI.quickAsk(`I just took a quiz on ${subjectName}. Please give a short, focused revision plan for these weak topics. For each topic include: 1) one-line summary, 2) 2 key formulas/concepts to remember, 3) one practice tip.\n\n${list}`);
+    },
+
     showResult() {
         if (this.timerInterval) clearInterval(this.timerInterval);
 
@@ -542,9 +575,10 @@ const Quiz = {
                 </div>
             </div>
             <div style="display:flex;gap:var(--sp-3);justify-content:center;flex-wrap:wrap;margin-top:var(--sp-4)">
-                <button class="btn btn-primary" onclick="Quiz.render();Quiz.begin()">Retake Quiz</button>
-                <button class="btn btn-secondary" onclick="Quiz.render()">New Quiz</button>
-                <button class="btn btn-secondary" onclick="App.navigate('analytics')">View Analytics</button>
+                <button class="btn btn-primary" onclick="Quiz.render();Quiz.begin()" data-testid="quiz-retake-btn">Retake Quiz</button>
+                <button class="btn btn-secondary" onclick="Quiz.render()" data-testid="quiz-new-btn">New Quiz</button>
+                ${weakArr.length ? `<button class="btn btn-secondary" onclick="Quiz.askAiOnWeakTopics()" data-testid="quiz-explain-weak-btn">Ask AI on weak topics</button>` : ''}
+                <button class="btn btn-secondary" onclick="App.navigate('analytics')" data-testid="quiz-analytics-btn">View Analytics</button>
             </div>
         </div>`;
 

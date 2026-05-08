@@ -118,6 +118,59 @@
     --accent-glow: rgba(16, 185, 129, 0.25);
 }
 
+/* --- Light Theme Tokens --- */
+[data-theme="light"] {
+    --bg-dark: #f5f7fb;
+    --bg-surface: #ffffff;
+    --bg-elevated: #f1f5f9;
+
+    --text-primary: #0f172a;
+    --text-secondary: #475569;
+    --text-muted: #64748b;
+    --text-inverse: #f8fafc;
+
+    --glass-bg: rgba(255, 255, 255, 0.7);
+    --glass-bg-hover: rgba(255, 255, 255, 0.95);
+    --glass-border: rgba(15, 23, 42, 0.08);
+    --glass-border-hover: rgba(99, 102, 241, 0.5);
+
+    --shadow-sm: 0 2px 6px rgba(15, 23, 42, 0.04);
+    --shadow-md: 0 6px 20px rgba(15, 23, 42, 0.06);
+    --shadow-lg: 0 16px 40px rgba(15, 23, 42, 0.10);
+    --shadow-xl: 0 24px 60px rgba(15, 23, 42, 0.14);
+    --shadow-glow: 0 4px 18px var(--primary-glow);
+    --shadow-glow-lg: 0 8px 30px var(--primary-glow);
+}
+[data-theme="light"] body {
+    background-color: var(--bg-dark);
+    background-image:
+        radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.08) 0%, transparent 50%),
+        radial-gradient(at 100% 100%, rgba(168, 85, 247, 0.06) 0%, transparent 50%);
+}
+[data-theme="light"] .ambient-bg::before { opacity: 0.18; }
+[data-theme="light"] .ambient-bg::after { opacity: 0.14; }
+[data-theme="light"] .ambient-blob-3 { opacity: 0.10; }
+[data-theme="light"] .app-header { background: rgba(255, 255, 255, 0.85); }
+[data-theme="light"] .nav-mobile { background: rgba(255, 255, 255, 0.92); }
+[data-theme="light"] .mobile-more-sheet { background: rgba(255, 255, 255, 0.97); }
+[data-theme="light"] .ai-msg.bot { background: rgba(99, 102, 241, 0.07); border-color: rgba(99, 102, 241, 0.2); color: #1e293b; }
+[data-theme="light"] .chat-messages { background: rgba(255, 255, 255, 0.6); }
+[data-theme="light"] .chat-input { background: rgba(255, 255, 255, 0.8); color: #0f172a; }
+[data-theme="light"] .chat-chip { background: rgba(99, 102, 241, 0.08); color: #4338ca; }
+[data-theme="light"] .auth-card { background: linear-gradient(135deg, rgba(255,255,255,0.95), rgba(241,245,249,0.95)); }
+[data-theme="light"] .input-group input { background: rgba(248, 250, 252, 0.9); color: #0f172a; }
+[data-theme="light"] .input-group input:focus { background: #fff; }
+[data-theme="light"] .form-select, [data-theme="light"] .form-input { background: rgba(255, 255, 255, 0.9); color: #0f172a; }
+[data-theme="light"] .form-select option { background: #fff; color: #0f172a; }
+[data-theme="light"] .splash-screen { background: #f5f7fb; }
+[data-theme="light"] .splash-text { background: linear-gradient(135deg, #0f172a, var(--secondary)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+[data-theme="light"] .text-gradient { background: linear-gradient(135deg, #0f172a, var(--primary)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+[data-theme="light"] ::-webkit-scrollbar-thumb { background: rgba(15, 23, 42, 0.18); }
+[data-theme="light"] ::-webkit-scrollbar-thumb:hover { background: rgba(15, 23, 42, 0.32); }
+[data-theme="light"] .stat-tile-value { background: linear-gradient(135deg, #0f172a, var(--primary)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+[data-theme="light"] .app-footer { background: linear-gradient(180deg, transparent, rgba(15, 23, 42, 0.04)); }
+[data-theme="light"] .quiz-timer { color: #d97706; }
+
 /* --- Font Size Settings --- */
 [data-font-size="small"] { font-size: 14px; }
 [data-font-size="medium"] { font-size: 16px; }

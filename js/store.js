@@ -152,7 +152,7 @@ const Store = {
     setAiCache(key, val) { this._set(`ai_${key}`, val); },
 
     /* --- Settings --- */
-    getSettings() { return this._get('settings') || { fontSize: 'medium', reducedMotion: false }; },
+    getSettings() { return this._get('settings') || { fontSize: 'medium', reducedMotion: false, theme: 'dark' }; },
     updateSettings(updates) { this._set('settings', { ...this.getSettings(), ...updates }); },
 
     /* --- Export/Import/Sync --- */

@@ -225,6 +225,16 @@ const App = {
         const settings = Store.getSettings();
         document.body.setAttribute('data-font-size', settings.fontSize || 'medium');
         document.body.classList.toggle('reduced-motion', !!settings.reducedMotion);
+
+        // Theme: 'dark' | 'light' | 'system'. System resolves on the fly.
+        const root = document.documentElement;
+        const prefersLight = window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches;
+        const requestedTheme = settings.theme || 'dark';
+        const effectiveTheme = requestedTheme === 'system' ? (prefersLight ? 'light' : 'dark') : requestedTheme;
+        root.setAttribute('data-theme', effectiveTheme);
+        const themeColor = effectiveTheme === 'light' ? '#f5f7fb' : '#0d2137';
+        const meta = document.querySelector('meta[name="theme-color"]');
+        if (meta) meta.setAttribute('content', themeColor);
     },
 
     updateHeader() {
@@ -387,6 +397,7 @@ const App = {
         if (!el) return;
         
         const settings = Store.getSettings();
+        const theme = settings.theme || 'dark';
         el.innerHTML = `
         <div class="section-header">
             <h2>Settings</h2>
@@ -396,7 +407,25 @@ const App = {
         <div style="max-width: 600px; margin: 0 auto">
             <div class="glass-card" style="padding:var(--sp-6); margin-bottom:var(--sp-6)">
                 <h3 style="margin-bottom:var(--sp-4)">Appearance</h3>
-                
+
+                <div class="form-group">
+                    <label class="form-label">Theme</label>
+                    <div class="theme-picker" role="radiogroup" aria-label="Theme">
+                        <button type="button" class="theme-option ${theme === 'dark' ? 'selected' : ''}" data-theme="dark" onclick="App.setTheme('dark')" data-testid="theme-dark">
+                            <span class="theme-swatch theme-swatch-dark" aria-hidden="true"></span>
+                            <span>Dark</span>
+                        </button>
+                        <button type="button" class="theme-option ${theme === 'light' ? 'selected' : ''}" data-theme="light" onclick="App.setTheme('light')" data-testid="theme-light">
+                            <span class="theme-swatch theme-swatch-light" aria-hidden="true"></span>
+                            <span>Light</span>
+                        </button>
+                        <button type="button" class="theme-option ${theme === 'system' ? 'selected' : ''}" data-theme="system" onclick="App.setTheme('system')" data-testid="theme-system">
+                            <span class="theme-swatch theme-swatch-system" aria-hidden="true"></span>
+                            <span>System</span>
+                        </button>
+                    </div>
+                </div>
+
                 <div class="form-group">
                     <label class="form-label">Font Size</label>
                     <select class="form-select" id="setting-font-size" onchange="App.saveSettings()">
@@ -418,16 +447,25 @@ const App = {
             <div class="glass-card" style="padding:var(--sp-6)">
                 <h3 style="margin-bottom:var(--sp-4); color:var(--danger)">Data Management</h3>
                 <div style="display:flex; gap:var(--sp-3); flex-wrap:wrap">
-                    <button class="btn btn-secondary" onclick="Utils.downloadAsText(Store.exportAll(), 'study_data.json')">Export Data</button>
-                    <button class="btn btn-danger" onclick="App.clearData()">Clear All Progress</button>
+                    <button class="btn btn-secondary" onclick="Utils.downloadAsText(Store.exportAll(), 'study_data.json')" data-testid="export-data-btn">Export Data</button>
+                    <button class="btn btn-danger" onclick="App.clearData()" data-testid="clear-data-btn">Clear All Progress</button>
                 </div>
             </div>
             
             <div style="margin-top:var(--sp-8); text-align:center; color:var(--text-muted); font-size:0.8rem">
-                <p>Platform created for college project</p>
-                <p style="margin-top:4px">v2.0 Modular Architecture</p>
+                <p>Lernio AI · Built for engineering students</p>
+                <p style="margin-top:4px">v2.1 · PWA + Theme + Smart Dashboard</p>
             </div>
         </div>`;
+    },
+
+    setTheme(theme) {
+        Store.updateSettings({ theme });
+        document.querySelectorAll('.theme-option').forEach(b => b.classList.remove('selected'));
+        const active = document.querySelector(`.theme-option[data-theme="${theme}"]`);
+        if (active) active.classList.add('selected');
+        this.applySubjectTheme();
+        Utils.showToast(`Theme: ${theme}`, 'success');
     },
 
     saveSettings() {
